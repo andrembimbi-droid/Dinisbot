@@ -1,0 +1,66 @@
+package com.andredinis.aviatorapp
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
+
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AviatorApp()
+        }
+    }
+}
+
+@Composable
+fun AviatorApp() {
+    var serverSeed by remember { mutableStateOf("") }
+    var clientSeed by remember { mutableStateOf("") }
+    var nonce by remember { mutableStateOf("") }
+    var result by remember { mutableStateOf("") }
+    val history = remember { mutableStateListOf<String>() }
+
+    Column(modifier = Modifier.padding(16.dp)) {
+        TextField(serverSeed, { serverSeed = it }, label = { Text("Server Seed") })
+        TextField(clientSeed, { clientSeed = it }, label = { Text("Client Seed") })
+        TextField(nonce, { nonce = it }, label = { Text("Nonce") })
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Button(onClick = {
+            if(serverSeed.isNotEmpty() && clientSeed.isNotEmpty() && nonce.isNotEmpty()){
+                val multiplier = calculateMultiplier(serverSeed, clientSeed, nonce.toInt())
+                result = "Multiplicador: $multiplier"
+                history.add(result)
+            }
+        }) {
+            Text("Calcular Multiplicador")
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+        Text(result)
+        Spacer(modifier = Modifier.height(20.dp))
+
+        LazyColumn {
+            items(history) { Text(it) }
+        }
+    }
+}
+
+fun calculateMultiplier(serverSeed: String, clientSeed: String, nonce: Int): Double {
+    val mac = Mac.getInstance("HmacSHA256")
+    mac.init(SecretKeySpec(serverSeed.toByteArray(), "HmacSHA256"))
+    val hash = mac.doFinal((clientSeed + nonce).toByteArray())
+    var decimal = 0L
+    for(b in hash) decimal = (decimal shl 8) or (b.toLong() and 0xff)
+    return "%.2f".format(1 + (decimal % 10000)/100.0).toDouble()
+}
